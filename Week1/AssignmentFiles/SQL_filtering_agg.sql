@@ -25,8 +25,17 @@ group by order_date;
 
 -- Q4) What is the average number of items per PAID order?
 --     Use a subquery or CTE over order_items filtered by order_id IN (...).
+with cte_items as 
+(
+	select o.order_id, o.status as stat, sum(oi.quantity) as total_items 
+	from orders o inner join order_items oi on o.order_id = oi.order_id
+	where o.status = 'Paid'
+	group by o.order_id
+)
+select stat, avg(total_items)
+from cte_items
+group by stat;
 
-    
 -- Q5) Which products (by product_id) have sold the most units overall across all stores?
 --     Return (product_id, total_units), sorted desc.
 select product_id, sum(quantity) as total_units
@@ -37,7 +46,17 @@ order by total_units desc;
 -- Q6) Among PAID orders only, which product_ids have the most units sold?
 --     Return (product_id, total_units_paid), sorted desc.
 --     Hint: order_id IN (SELECT order_id FROM orders WHERE status='paid').
-
+with cte_products as 
+(
+	select oi.product_id as product, o.status as stat, sum(oi.quantity) as total_sold 
+	from orders o inner join order_items oi on o.order_id = oi.order_id
+	where o.status = 'Paid'
+	group by oi.product_id
+)
+select product, sum(total_sold) as sold
+from cte_products
+group by product
+order by sold desc;
 
 -- Q7) For each store, how many UNIQUE customers have placed a PAID order?
 --     Return (store_id, unique_customers) using only the orders table.
@@ -79,6 +98,10 @@ from orders
 where status = 'paid' and payment_method = 'app';
 
 -- Q12) Busiest hour: for PAID orders, show (hour_of_day, orders_count) sorted desc.
-
+select hour(order_datetime) as hour_of_day, count(order_id) as paid_order_count
+from orders
+where status = 'paid'
+group by hour_of_day
+order by paid_order_count desc;
 
 -- ================
