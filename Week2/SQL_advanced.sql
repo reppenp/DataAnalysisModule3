@@ -17,6 +17,29 @@ USE coffeeshop_db;
 -- Filter to orders where order_total is greater than the average PAID order_total
 -- for THAT SAME store (correlated subquery).
 -- Sort by store_name, then order_total DESC.
+with store_orders as
+(
+select orderid, customer_name, store_name, orderdate, order_total, avg(order_total) over(partition by store_name) as average_order
+from
+(select orderid, customer_name, store_name, orderdate, sum(line_total) as order_total
+from
+(
+select o.order_id as orderid, oi.order_item_id, o.status, concat(c.first_name, " ", c.last_name) as customer_name, s.name as store_name, 
+o.order_datetime as orderdate, oi.quantity as quantity, p.price, (oi.quantity * p.price) as line_total 
+from order_items oi
+join orders o on oi.order_id = o.order_id
+join products p on oi.product_id = p.product_id
+join customers c on o.customer_id = c.customer_id
+join stores s on o.store_id = s.store_id
+where o.status = "Paid"
+) order1
+group by store_name, customer_name, orderid, orderdate
+) order2
+) 
+select *
+from store_orders
+where order_total > average_order
+;
 
 -- =========================================================
 -- Q2) CTE: Daily revenue and 3-day rolling average (PAID only)
@@ -37,6 +60,16 @@ USE coffeeshop_db;
 --         spend_rank (DENSE_RANK by total_spend DESC).
 -- Also include percent_of_total = customer's total_spend / total spend of all customers.
 -- Sort by total_spend DESC.
+(
+select c.customer_id as cust_id, concat(c.first_name, " ", c.last_name) as customer_name,
+sum(oi.quantity * p.price) as total_spend
+from orders o
+join customers c on o.customer_id = c.customer_id
+join order_items oi on o.order_id = oi.order_id
+join products p on oi.product_id = p.product_id
+group by c.customer_id
+)
+;
 
 -- =========================================================
 -- Q4) CTE + window: Top product per store by revenue (PAID only)
